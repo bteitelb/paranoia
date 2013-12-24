@@ -26,6 +26,12 @@ module Paranoia
         only_deleted.find(id).restore!(opts)
       end
     end
+    
+    def dependent_associations
+      reflect_on_all_associations
+      # or perhaps select only the dependent ones...
+      # reflect_on_all_associations.select {|a| [:destroy, :delete_all].include?(a.options[:dependent]) }
+    end
   end
 
   module Callbacks
@@ -115,6 +121,12 @@ class ActiveRecord::Base
 
     self.paranoia_column = options[:column] || :deleted_at
     default_scope { where(self.quoted_table_name + ".#{paranoia_column} IS NULL") }
+
+    self.dependent_associations.each do |reflection|
+      if (klazz = reflection.klass).paranoid?
+        klazz.default_scope { klazz.where(klazz.quoted_table_name + ".#{klazz.paranoia_column} IS NULL") }
+      end
+    end
 
     before_restore {
       self.class.notify_observers(:before_restore, self) if self.class.respond_to?(:notify_observers)
