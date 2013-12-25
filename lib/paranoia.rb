@@ -116,6 +116,14 @@ class ActiveRecord::Base
     self.paranoia_column = options[:column] || :deleted_at
     default_scope { where(self.quoted_table_name + ".#{paranoia_column} IS NULL") }
 
+    self.reflect_on_all_associations.each do |reflection|
+      if (klazz = reflection.klass).paranoid?
+        options = reflection.instance_variable_get(:@options)
+        options.deep_merge!({:conditions => klazz.where(klazz.quoted_table_name + ".#{klazz.paranoia_column} IS NULL")})
+        reflection.instance_variable_set(:@options, options)
+      end
+    end
+
     before_restore {
       self.class.notify_observers(:before_restore, self) if self.class.respond_to?(:notify_observers)
     }
